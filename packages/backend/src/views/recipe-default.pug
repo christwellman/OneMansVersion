@@ -136,6 +136,36 @@ html
         padding-right: 10px;
       }
 
+      .pairedTable {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+      }
+
+      .pairedTable .pairedGroupTitle {
+        padding: 8px 0 4px 0;
+        border-top: 1px solid grey;
+        font-size: 17px;
+      }
+
+      .pairedTable .pairedBodyRow {
+        page-break-inside: avoid;
+      }
+
+      .pairedTable .pairedBodyRow td {
+        vertical-align: top;
+        padding: 4px 12px 12px 0;
+      }
+
+      .pairedTable .pairedIngredientsCell {
+        width: 215px;
+        min-width: 180px;
+      }
+
+      .pairedTable .pairedInstructionsCell {
+        padding-left: 12px;
+      }
+
       .action-buttons {
         display: flex;
         align-items: center;
@@ -342,24 +372,45 @@ html
             i= label.title
             if ++labelIdx < recipe.labels.length
               i ,&nbsp;
-    div(class='ingrInstrContainer')
-      div(class='ingredients')
-        each ingredient in recipe.ingredients
-          p(class=('ingredient ' + (ingredient.isHeader ? 'ingredientHeader' : ''))) !{ingredient.htmlContent}
-        if modifiers.scale !== 1
-          p
-            i Ingredients at&nbsp;
-            i= modifiers.scale
-            i x scale
-      div(class='instructions')
-        each instruction in recipe.instructions
-          div(class='instruction')
-            if instruction.isHeader
-              span
-              b !{instruction.htmlContent}
-            else
-              b(class='count')= instruction.count
-              span !{instruction.htmlContent}
+    if recipe.parsed.mode === 'flat'
+      div(class='ingrInstrContainer')
+        div(class='ingredients')
+          each ingredient in recipe.parsed.ingredients
+            p(class=('ingredient ' + (ingredient.isHeader ? 'ingredientHeader' : ''))) !{ingredient.htmlContent}
+          if modifiers.scale !== 1
+            p
+              i Ingredients at&nbsp;
+              i= modifiers.scale
+              i x scale
+        div(class='instructions')
+          each instruction in recipe.parsed.instructions
+            div(class='instruction')
+              if instruction.isHeader
+                span
+                b !{instruction.htmlContent}
+              else
+                b(class='count')= instruction.count
+                span !{instruction.htmlContent}
+    else
+      table(class='pairedTable')
+        each group in recipe.parsed.groups
+          tr(class='pairedGroupRow')
+            td(class='pairedGroupTitle' colspan=2)
+              b= group.title
+          tr(class='pairedBodyRow')
+            td(class='pairedIngredientsCell')
+              each ingredient in group.ingredients
+                p(class='ingredient') !{ingredient.htmlContent}
+            td(class='pairedInstructionsCell')
+              each instruction in group.instructions
+                div(class='instruction')
+                  b(class='count')= instruction.count
+                  span !{instruction.htmlContent}
+      if modifiers.scale !== 1
+        p
+          i Ingredients at&nbsp;
+          i= modifiers.scale
+          i x scale
 
     if recipe.notes && !modifiers.hideNotes
       p(class='sans')

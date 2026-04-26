@@ -18,6 +18,14 @@ import {
   ParsedNote,
   RecipeFolderName,
 } from "~/services/recipe.service";
+
+interface PairedGroupView {
+  title: string;
+  ingredients: ParsedIngredient[];
+  instructions: ParsedInstruction[];
+  ingredientStartIdx: number;
+  instructionStartIdx: number;
+}
 import { CookingToolbarService } from "~/services/cooking-toolbar.service";
 import { LoadingService } from "~/services/loading.service";
 import { UtilService, RouteMap } from "~/services/util.service";
@@ -96,6 +104,8 @@ export class RecipePage {
   recipeId: string;
   ingredients?: ParsedIngredient[];
   instructions?: ParsedInstruction[];
+  pairedGroups?: PairedGroupView[];
+  pairedMode = false;
   notes?: ParsedNote[];
   scale = 1;
   unitSystem: UnitSystem = "original";
@@ -411,17 +421,40 @@ export class RecipePage {
           ? System.US
           : undefined;
 
-    this.ingredients = this.recipeService.parseIngredients(
+    const parsed = this.recipeService.parsePairedRecipe(
       this.recipe.ingredients,
-      this.scale,
-      targetSystem,
-    );
-    this.instructions = this.recipeService.parseInstructions(
       this.recipe.instructions,
       this.scale,
       targetSystem,
       this.getInlineImageRefs(),
     );
+
+    if (parsed.mode === "flat") {
+      this.pairedMode = false;
+      this.pairedGroups = undefined;
+      this.ingredients = parsed.ingredients;
+      this.instructions = parsed.instructions;
+      return;
+    }
+
+    this.pairedMode = true;
+    const flatIngredients: ParsedIngredient[] = [];
+    const flatInstructions: ParsedInstruction[] = [];
+    const groups: PairedGroupView[] = [];
+    for (const g of parsed.groups) {
+      groups.push({
+        title: g.title,
+        ingredients: g.ingredients,
+        instructions: g.instructions,
+        ingredientStartIdx: flatIngredients.length,
+        instructionStartIdx: flatInstructions.length,
+      });
+      flatIngredients.push(...g.ingredients);
+      flatInstructions.push(...g.instructions);
+    }
+    this.pairedGroups = groups;
+    this.ingredients = flatIngredients;
+    this.instructions = flatInstructions;
   }
 
   private getInlineImageRefs(): { url: string }[] {

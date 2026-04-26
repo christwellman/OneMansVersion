@@ -192,12 +192,37 @@ const getInstructionsFromSchema = (jsonLD) => {
   if (!instructions) return "";
 
   if (typeof instructions === "string") return instructions;
-  if (typeof instructions[0] === "string") return instructions.join("\n");
-  if (instructions[0] && typeof instructions[0].text === "string") {
-    return instructions.map((instruction) => instruction.text).join("\n");
+  if (!Array.isArray(instructions)) return "";
+
+  const acc = [];
+  for (const instruction of instructions) {
+    if (typeof instruction === "string") {
+      acc.push(instruction);
+      continue;
+    }
+    if (
+      instruction &&
+      instruction["@type"] === "HowToSection" &&
+      (instruction.name || instruction.itemListElement)
+    ) {
+      if (instruction.name) acc.push(`[${instruction.name}]`);
+      const items = instruction.itemListElement;
+      if (typeof items === "string") {
+        acc.push(items);
+      } else if (Array.isArray(items)) {
+        for (const item of items) {
+          if (typeof item === "string") acc.push(item);
+          else if (item) acc.push(item.text || item.name || "");
+        }
+      }
+      continue;
+    }
+    if (instruction && typeof instruction.text === "string") {
+      acc.push(instruction.text);
+    }
   }
 
-  return "";
+  return acc.join("\n");
 };
 
 const getIngredientsFromSchema = (jsonLD) => {

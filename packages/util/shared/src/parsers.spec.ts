@@ -7,6 +7,7 @@ import {
   parseIngredients,
   parseInstructions,
   parseNotes,
+  parsePairedRecipe,
   applyInlineFormatting,
   applyInlineFormattingWithImages,
   stripInlineFormatting,
@@ -1771,6 +1772,213 @@ describe("parsers", () => {
       it("defaults to true when not specified", () => {
         const result = isRtlText("مرحبا Hello world");
         expect(result).toBe(true);
+      });
+    });
+  });
+
+  describe("parsePairedRecipe", () => {
+    describe("flat fallback", () => {
+      it("returns flat mode for empty inputs", () => {
+        const result = parsePairedRecipe("", "", 1);
+        expect(result.mode).toBe("flat");
+        if (result.mode === "flat") {
+          expect(result.ingredients).toEqual([]);
+          expect(result.instructions).toEqual([]);
+        }
+      });
+
+      it("returns flat mode when no headers are present", () => {
+        const result = parsePairedRecipe(
+          "2 cups flour\n1 tsp salt",
+          "Mix.\nBake 30 min.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+        if (result.mode === "flat") {
+          expect(result.ingredients.length).toBe(2);
+          expect(result.instructions.length).toBe(2);
+        }
+      });
+
+      it("returns flat mode when headers are only on instructions", () => {
+        const result = parsePairedRecipe(
+          "2 cups flour\n1 tsp salt",
+          "[Mix]\nStir.\nBake.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+      });
+
+      it("returns flat mode when headers are only on ingredients", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour",
+          "Mix.\nBake.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+      });
+
+      it("returns flat mode when header sets disagree", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour\n[Sauce]\n1 cup tomato",
+          "[Dough]\nMix dough.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+      });
+
+      it("returns flat mode when ingredients have body before first header", () => {
+        const result = parsePairedRecipe(
+          "1 tsp salt\n[Dough]\n2 cups flour",
+          "[Dough]\nMix.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+      });
+
+      it("returns flat mode when instructions have body before first header", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour",
+          "Preheat oven.\n[Dough]\nMix.",
+          1,
+        );
+        expect(result.mode).toBe("flat");
+      });
+    });
+
+    describe("paired mode", () => {
+      it("pairs a single matching header", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour\n1 tsp salt",
+          "[Dough]\nWhisk dry.\nAdd water.\nKnead.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups.length).toBe(1);
+          expect(result.groups[0].title).toBe("Dough");
+          expect(result.groups[0].ingredients.length).toBe(2);
+          expect(result.groups[0].instructions.length).toBe(3);
+          expect(result.groups[0].instructions[0].count).toBe(1);
+          expect(result.groups[0].instructions[2].count).toBe(3);
+        }
+      });
+
+      it("emits groups in the order they appear in instructions", () => {
+        const result = parsePairedRecipe(
+          "[Filling]\n1 lb pork\n[Dough]\n2 cups flour",
+          "[Dough]\nMix dough.\n[Filling]\nMix filling.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups.map((g) => g.title)).toEqual([
+            "Dough",
+            "Filling",
+          ]);
+          expect(result.groups[0].ingredients[0].content).toContain("flour");
+          expect(result.groups[1].ingredients[0].content).toContain("pork");
+        }
+      });
+
+      it("matches headers case-insensitively and trim-tolerantly", () => {
+        const result = parsePairedRecipe(
+          "[ Dough ]\n2 cups flour",
+          "[dough]\nMix.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups.length).toBe(1);
+          expect(result.groups[0].ingredients.length).toBe(1);
+          expect(result.groups[0].instructions.length).toBe(1);
+        }
+      });
+
+      it("restarts step counts at 1 per group", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour\n[Filling]\n1 lb pork",
+          "[Dough]\nMix.\nKnead.\n[Filling]\nChop.\nSeason.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups[0].instructions.map((i) => i.count)).toEqual([
+            1, 2,
+          ]);
+          expect(result.groups[1].instructions.map((i) => i.count)).toEqual([
+            1, 2,
+          ]);
+        }
+      });
+
+      it("scales measurements within a paired group", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour",
+          "[Dough]\nMix.",
+          2,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups[0].ingredients[0].content).toContain("4");
+        }
+      });
+
+      it("honors targetSystem unit conversion in paired mode", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n1 cup flour",
+          "[Dough]\nMix.",
+          1,
+          System.METRIC,
+        );
+        expect(result.mode).toBe("paired");
+      });
+
+      it("propagates image refs to instruction htmlContent", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour",
+          "[Dough]\nMix. ![image:1]",
+          1,
+          undefined,
+          [{ url: "https://example.com/image.png" }],
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups[0].instructions[0].htmlContent).toContain(
+            "example.com/image.png",
+          );
+        }
+      });
+
+      it("emits a group with empty ingredients body when one side lacks content", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour\n[Rest]",
+          "[Dough]\nMix.\n[Rest]\nCover for 1 hour.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups.length).toBe(2);
+          const rest = result.groups.find((g) => g.title === "Rest");
+          expect(rest).toBeDefined();
+          if (rest) {
+            expect(rest.ingredients.length).toBe(0);
+            expect(rest.instructions.length).toBe(1);
+          }
+        }
+      });
+
+      it("does not treat '[abc] suffix' lines as section headers", () => {
+        const result = parsePairedRecipe(
+          "[Dough]\n2 cups flour\n[note] stir well",
+          "[Dough]\nMix.",
+          1,
+        );
+        expect(result.mode).toBe("paired");
+        if (result.mode === "paired") {
+          expect(result.groups.length).toBe(1);
+          expect(result.groups[0].ingredients.length).toBe(2);
+        }
       });
     });
   });

@@ -12,7 +12,10 @@ import {
   parseIngredients,
   parseInstructions,
   parseNotes,
+  parsePairedRecipe,
   ParsedNote,
+  ParsedRecipe,
+  ParsedRecipeGroup,
 } from "@recipesage/util/shared";
 
 export interface Label {
@@ -72,7 +75,7 @@ export interface ParsedInstruction {
   isRtl: boolean;
 }
 
-export type { ParsedNote };
+export type { ParsedNote, ParsedRecipe, ParsedRecipeGroup };
 
 export enum ExportFormat {
   PDF = "pdf",
@@ -198,5 +201,21 @@ export class RecipeService {
 
   parseNotes(notes: string, images?: { url: string }[]): ParsedNote[] {
     return parseNotes(notes, images);
+  }
+
+  parsePairedRecipe(
+    ingredients: string,
+    instructions: string,
+    scale: number,
+    targetSystem?: System,
+    images?: { url: string }[],
+  ): ParsedRecipe {
+    return parsePairedRecipe(
+      ingredients,
+      instructions,
+      scale,
+      targetSystem,
+      images,
+    );
   }
 }
