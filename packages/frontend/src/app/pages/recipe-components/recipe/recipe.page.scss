@@ -138,6 +138,87 @@ h2.recipeTitle {
   }
 }
 
+.pairedRecipe {
+  margin-bottom: 15px;
+
+  .pairedHeaderItem {
+    margin-bottom: 4px;
+  }
+
+  .pairedGroup {
+    border-top: 1px solid var(--ion-border-color);
+    padding: 12px 0;
+
+    &:last-of-type {
+      border-bottom: 1px solid var(--ion-border-color);
+    }
+  }
+
+  .pairedGroupTitle {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+  }
+
+  .pairedGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px 24px;
+
+    @media (min-width: 576px) {
+      grid-template-columns: minmax(180px, 1fr) 2fr;
+    }
+
+    @media (min-width: 1000px) {
+      grid-template-columns: minmax(220px, 1fr) 2.2fr;
+    }
+  }
+
+  .pairedIngredients {
+    .ingredient {
+      margin: 4px 0;
+
+      &.ingredientContent {
+        cursor: pointer;
+      }
+
+      &.complete {
+        text-decoration: line-through;
+        opacity: 0.7;
+      }
+    }
+  }
+
+  .pairedInstructions {
+    .instruction {
+      margin: 0 0 10px 0;
+
+      .instructionContent {
+        cursor: pointer;
+      }
+
+      span.complete .instructionContent {
+        text-decoration: line-through;
+        opacity: 0.7;
+      }
+    }
+  }
+
+  .pairedEmpty {
+    color: var(--ion-color-medium);
+    font-style: italic;
+    margin: 4px 0;
+  }
+
+  .pairedScale {
+    margin-top: 12px;
+
+    .scale {
+      cursor: pointer;
+    }
+  }
+}
+
 .notes {
   .header {
     font-weight: bold;

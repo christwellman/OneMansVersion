@@ -1,8 +1,7 @@
 import _pdfmake from "pdfmake";
 import {
-  parseIngredients,
-  parseInstructions,
   parseNotes,
+  parsePairedRecipe,
   parseTableCells,
   ParsedNote,
   stripImageTokens,
@@ -253,37 +252,55 @@ const recipeToSchema = async (
     schema.push(...headerContent);
   }
 
-  const parsedInstructions = parseInstructions(
-    sanitizeRemoveHtmlFromString(recipe.instructions || ""),
-    1,
-  );
-  const parsedIngredients = parseIngredients(
+  const parsed = parsePairedRecipe(
     sanitizeRemoveHtmlFromString(recipe.ingredients || ""),
+    sanitizeRemoveHtmlFromString(recipe.instructions || ""),
     1,
   );
   const parsedNotes = parseNotes(
     sanitizeRemoveHtmlFromString(recipe.notes || ""),
   );
-  if (recipe.ingredients && recipe.instructions) {
+  if (parsed.mode === "paired") {
+    for (const group of parsed.groups) {
+      schema.push({
+        text: group.title,
+        bold: true,
+        margin: [0, 8, 0, 4] satisfies Margins,
+      });
+      schema.push({
+        columns: [
+          {
+            width: 180,
+            stack: parsedToSchema(group.ingredients, true),
+          },
+          {
+            width: "auto",
+            stack: parsedInstructionsToSchema(group.instructions),
+          },
+        ],
+        margin: [0, 0, 0, 6] satisfies Margins,
+      });
+    }
+  } else if (recipe.ingredients && recipe.instructions) {
     schema.push({
       columns: [
         {
           width: 180,
-          stack: parsedToSchema(parsedIngredients, true),
+          stack: parsedToSchema(parsed.ingredients, true),
         },
         {
           width: "auto",
-          stack: parsedInstructionsToSchema(parsedInstructions),
+          stack: parsedInstructionsToSchema(parsed.instructions),
         },
       ],
     });
   } else if (recipe.ingredients) {
     schema.push({
-      stack: parsedToSchema(parsedIngredients, true),
+      stack: parsedToSchema(parsed.ingredients, true),
     });
   } else if (recipe.instructions) {
     schema.push({
-      stack: parsedInstructionsToSchema(parsedInstructions),
+      stack: parsedInstructionsToSchema(parsed.instructions),
     });
   }
 

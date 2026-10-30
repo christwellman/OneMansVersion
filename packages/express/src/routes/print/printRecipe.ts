@@ -3,9 +3,8 @@ import { z } from "zod";
 import { NotFoundError } from "../../errors";
 import { AuthenticationEnforcement, defineHandler } from "../../defineHandler";
 import {
-  parseIngredients,
-  parseInstructions,
   parseNotes,
+  parsePairedRecipe,
 } from "@recipesage/util/shared";
 import {
   sanitizeRemoveHtmlFromString,
@@ -94,11 +93,8 @@ export const printRecipeHandler = defineHandler(
         url: sorted.url,
         images,
         labels,
-        ingredients: parseIngredients(
+        parsed: parsePairedRecipe(
           sanitizeRemoveHtmlFromString(sorted.ingredients),
-          scale,
-        ),
-        instructions: parseInstructions(
           sanitizeRemoveHtmlFromString(sorted.instructions),
           scale,
           undefined,

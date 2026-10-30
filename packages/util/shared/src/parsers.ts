@@ -952,6 +952,129 @@ export const parseInstructions = (
   });
 };
 
+export interface ParsedIngredient {
+  content: string;
+  plaintextContent: string;
+  originalContent: string;
+  htmlContent: string;
+  complete: boolean;
+  isHeader: boolean;
+  isRtl: boolean;
+}
+
+export interface ParsedInstruction {
+  content: string;
+  plaintextContent: string;
+  htmlContent: string;
+  isHeader: boolean;
+  count: number;
+  complete: boolean;
+  isRtl: boolean;
+}
+
+export interface ParsedRecipeGroup {
+  title: string;
+  ingredients: ParsedIngredient[];
+  instructions: ParsedInstruction[];
+}
+
+export type ParsedRecipe =
+  | {
+      mode: "flat";
+      ingredients: ParsedIngredient[];
+      instructions: ParsedInstruction[];
+    }
+  | {
+      mode: "paired";
+      groups: ParsedRecipeGroup[];
+    };
+
+const groupByHeader = <T extends { content: string; isHeader: boolean }>(
+  items: T[],
+): { title: string; body: T[] }[] | null => {
+  const groups: { title: string; body: T[] }[] = [];
+  let current: { title: string; body: T[] } | null = null;
+  for (const item of items) {
+    if (item.isHeader) {
+      current = { title: item.content, body: [] };
+      groups.push(current);
+      continue;
+    }
+    if (!item.content.trim()) continue;
+    if (!current) return null;
+    current.body.push(item);
+  }
+  return groups;
+};
+
+export const parsePairedRecipe = (
+  ingredients: string,
+  instructions: string,
+  scale: number,
+  targetSystem?: System,
+  images?: InlineImageRef[],
+): ParsedRecipe => {
+  const parsedIngredients = parseIngredients(ingredients, scale, targetSystem);
+  const parsedInstructions = parseInstructions(
+    instructions,
+    scale,
+    targetSystem,
+    images,
+  );
+
+  const flat: ParsedRecipe = {
+    mode: "flat",
+    ingredients: parsedIngredients,
+    instructions: parsedInstructions,
+  };
+
+  if (parsedIngredients.length === 0 || parsedInstructions.length === 0) {
+    return flat;
+  }
+
+  const ingredientGroups = groupByHeader(parsedIngredients);
+  const instructionGroups = groupByHeader(parsedInstructions);
+  if (
+    !ingredientGroups ||
+    !instructionGroups ||
+    ingredientGroups.length === 0 ||
+    instructionGroups.length === 0
+  ) {
+    return flat;
+  }
+
+  const normalize = (s: string): string => s.trim().toLowerCase();
+  const ingredientKeys = new Set(
+    ingredientGroups.map((g) => normalize(g.title)),
+  );
+  const instructionKeys = new Set(
+    instructionGroups.map((g) => normalize(g.title)),
+  );
+  if (ingredientKeys.size !== instructionKeys.size) return flat;
+  for (const key of ingredientKeys) {
+    if (!instructionKeys.has(key)) return flat;
+  }
+
+  const ingredientByKey = new Map<
+    string,
+    { title: string; body: ParsedIngredient[] }
+  >();
+  for (const g of ingredientGroups) {
+    ingredientByKey.set(normalize(g.title), g);
+  }
+
+  const groups: ParsedRecipeGroup[] = instructionGroups.map((instrGroup) => {
+    const ingrGroup = ingredientByKey.get(normalize(instrGroup.title));
+    return {
+      title: ingrGroup ? ingrGroup.title : instrGroup.title,
+      ingredients: ingrGroup ? ingrGroup.body : [],
+      instructions: instrGroup.body,
+    };
+  });
+
+  return { mode: "paired", groups };
+};
+
 export interface ParsedNote {
   content: string;
   plaintextContent: string;

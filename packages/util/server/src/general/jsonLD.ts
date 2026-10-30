@@ -45,7 +45,19 @@ export type JsonLD = {
     | (
         | string
         | {
+            "@type"?: string;
             text?: string;
+            name?: string;
+            itemListElement?:
+              | string
+              | (
+                  | string
+                  | {
+                      "@type"?: string;
+                      text?: string;
+                      name?: string;
+                    }
+                )[];
           }
       )[];
   recipeIngredient?:
@@ -385,8 +397,27 @@ const getInstructionsFromSchema = (jsonLD: JsonLD) => {
   if (Array.isArray(instructions)) {
     const acc: string[] = [];
     for (const instruction of instructions) {
-      if (typeof instruction === "string") acc.push(instruction);
-      else acc.push(instruction.text || "");
+      if (typeof instruction === "string") {
+        acc.push(instruction);
+        continue;
+      }
+      if (
+        instruction["@type"] === "HowToSection" &&
+        (instruction.name || instruction.itemListElement)
+      ) {
+        if (instruction.name) acc.push(`[${instruction.name}]`);
+        const items = instruction.itemListElement;
+        if (typeof items === "string") {
+          acc.push(items);
+        } else if (Array.isArray(items)) {
+          for (const item of items) {
+            if (typeof item === "string") acc.push(item);
+            else acc.push(item.text || item.name || "");
+          }
+        }
+        continue;
+      }
+      acc.push(instruction.text || "");
     }
 
     return acc.join("\n");
